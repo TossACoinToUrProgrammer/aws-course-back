@@ -10,6 +10,7 @@ const stocksTableName = process.env.STOCKS_TABLE
 
 export const main: APIGatewayProxyHandler = async function (event, context) {
   try {
+    console.log(event)
     const productsCommand = new ScanCommand({ TableName: productsTableName })
     const stocksCommand = new ScanCommand({ TableName: stocksTableName })
     const products = await dynamoDBClient.send(productsCommand)
@@ -23,7 +24,7 @@ export const main: APIGatewayProxyHandler = async function (event, context) {
         count: stock?.count || 0,
       }
     })
-    
+
     return createResponse(200, JSON.stringify(mappedProducts))
   } catch (error: any) {
     const body = error.stack || JSON.stringify(error, null, 2)

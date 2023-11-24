@@ -8,6 +8,7 @@ const stocksTableName = process.env.STOCKS_TABLE
 
 export const main: APIGatewayProxyHandler = async function (event, context) {
   try {
+    console.log(event)
     if (!event.body) {
       return createResponse(400, "no input data was provided")
     }

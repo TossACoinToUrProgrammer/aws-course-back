@@ -10,6 +10,7 @@ const stocksTableName = process.env.STOCKS_TABLE
 
 export const main: APIGatewayProxyHandler = async function (event, context) {
   try {
+    console.log(event)
     const id = event.pathParameters?.id
     if (!id) {
       throw new Error("id was not provided")
