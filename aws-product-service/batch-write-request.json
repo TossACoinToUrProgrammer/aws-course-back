@@ -1,0 +1,96 @@
+{
+    "RSS_Products": [
+        {
+            "PutRequest": {
+                "Item": {
+                    "id": {
+                        "S": "11"
+                    },
+                    "title": {
+                        "S": "Item 11"
+                    },
+                    "description": {
+                        "S": "Item 11 Desc"
+                    },
+                    "price": {
+                        "N": "11"
+                    }
+                }
+            }
+        },
+        {
+            "PutRequest": {
+                "Item": {
+                    "id": {
+                        "S": "22"
+                    },
+                    "title": {
+                        "S": "Item 22"
+                    },
+                    "description": {
+                        "S": "Item 22 Desc"
+                    },
+                    "price": {
+                        "N": "22"
+                    }
+                }
+            }
+        },
+        {
+            "PutRequest": {
+                "Item": {
+                    "id": {
+                        "S": "33"
+                    },
+                    "title": {
+                        "S": "Item 33"
+                    },
+                    "description": {
+                        "S": "Item 33 Desc"
+                    },
+                    "price": {
+                        "N": "33"
+                    }
+                }
+            }
+        }
+    ],
+    "RSS_Stocks": [
+        {
+            "PutRequest": {
+                "Item": {
+                    "product_id": {
+                        "S": "11"
+                    },
+                    "count": {
+                        "N": "11"
+                    }
+                }
+            }
+        },
+        {
+            "PutRequest": {
+                "Item": {
+                    "product_id": {
+                        "S": "22"
+                    },
+                    "count": {
+                        "N": "22"
+                    }
+                }
+            }
+        },
+        {
+            "PutRequest": {
+                "Item": {
+                    "product_id": {
+                        "S": "33"
+                    },
+                    "count": {
+                        "N": "33"
+                    }
+                }
+            }
+        }
+    ]
+}
