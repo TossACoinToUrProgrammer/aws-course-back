@@ -29,7 +29,7 @@ export const main: APIGatewayProxyHandler = async function (event, context) {
     }
 
     if (reqBody.description) item.description = { S: reqBody.description }
-    if (reqBody.price) item.price = { N: reqBody.price }
+    if (reqBody.price) item.price = { N: String(reqBody.price) }
 
     const createCommand = new PutItemCommand({
       TableName: productsTableName,
