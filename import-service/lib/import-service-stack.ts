@@ -3,8 +3,9 @@ import { Construct } from "constructs"
 import * as apigateway from "aws-cdk-lib/aws-apigateway"
 import * as lambda from "aws-cdk-lib/aws-lambda"
 import * as s3 from "aws-cdk-lib/aws-s3"
-import * as events from "aws-cdk-lib/aws-events"
-import * as targets from "aws-cdk-lib/aws-events-targets"
+import * as s3n from "aws-cdk-lib/aws-s3-notifications"
+import * as iam from "aws-cdk-lib/aws-iam"
+import { NodejsFunction } from "aws-cdk-lib/aws-lambda-nodejs"
 
 export class ImportServiceStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
@@ -21,14 +22,22 @@ export class ImportServiceStack extends cdk.Stack {
       },
     })
 
-    const importFileParser = new lambda.Function(this, "importFileParser", {
+    const importFileParser = new NodejsFunction(this, "importFileParser", {
       runtime: lambda.Runtime.NODEJS_18_X,
-      code: lambda.Code.fromAsset("resources"),
-      handler: "importFileParser.main",
-      environment: {
-        BUCKET: bucketName,
-      },
+      entry: "resources/importFileParser.ts",
+      handler: "handler",
     })
+
+    importFileParser.role?.addManagedPolicy(
+      iam.ManagedPolicy.fromAwsManagedPolicyName("service-role/AWSLambdaBasicExecutionRole")
+    )
+    importFileParser.addToRolePolicy(
+      new iam.PolicyStatement({
+        effect: iam.Effect.ALLOW,
+        actions: ['sqs:SendMessage'],
+        resources: ["arn:aws:sqs:us-east-1:745945733339:catalogItemsQueue"], // Make sure to provide correct ARN for your SQS queue
+      }),
+    );
 
     const existingBucket = s3.Bucket.fromBucketName(this, "UploadedBucket", bucketName)
     existingBucket.grantReadWrite(importProductsFile)
@@ -58,23 +67,6 @@ export class ImportServiceStack extends cdk.Stack {
       },
     })
 
-    // Define the event rule
-    const s3EventRule = new events.Rule(this, "S3EventRule", {
-      eventPattern: {
-        source: ["aws.s3"],
-        detailType: ["AWS API Call via CloudTrail"],
-        detail: {
-          eventSource: ["s3.amazonaws.com"],
-          eventName: ["PutObject"],
-          requestParameters: {
-            bucketName: [existingBucket.bucketName],
-            key: [{ prefix: "uploaded/" }],
-          },
-        },
-      },
-    })
-
-    // Add Lambda function as a target to the S3 event rule
-    s3EventRule.addTarget(new targets.LambdaFunction(importFileParser))
+    existingBucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(importFileParser))
   }
 }

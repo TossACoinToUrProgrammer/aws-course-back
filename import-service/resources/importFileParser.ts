@@ -1,37 +1,80 @@
-import { S3Client, GetObjectCommand } from "@aws-sdk/client-s3"
 import { Readable } from "stream"
-import * as csv from "csv-parser"
-import { S3Event, S3Handler } from "aws-lambda"
+import { S3Event } from "aws-lambda"
+import { CopyObjectCommand, DeleteObjectCommand, GetObjectCommand, S3Client } from '@aws-sdk/client-s3';
+import { SQS } from "aws-sdk"
+import csv = require("csv-parser")
 
-const s3Client = new S3Client({ region: "us-east-1" })
+import createResponse from "./utils/createResponse"
 
-export const handler: S3Handler = async (event: S3Event) => {
-  for (const record of event.Records) {
-    const bucket = record.s3.bucket.name
-    const key = decodeURIComponent(record.s3.object.key.replace(/\+/g, " "))
+const client = new S3Client({ region: "us-east-1" })
+const sqs = new SQS()
 
-    // Get the object
-    const objectResult = await s3Client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+export const handler = async (event: S3Event) => {
+  console.log(event)
 
-    if (!objectResult.Body) {
-      console.log("No body in the object")
-      return
-    }
+  const KEY = event.Records[0].s3.object.key
+  const BUCKET = event.Records[0].s3.bucket.name
 
-    // Convert body into a stream
-    const readable = new Readable()
-    readable._read = (): void => {} // _read is required but does nothing in this scenario
-    readable.push(objectResult.Body)
-    readable.push(null)
+  const params = {
+    Bucket: BUCKET,
+    Key: KEY,
+  }
 
-    const stream = readable.pipe(csv())
+  const command = new GetObjectCommand(params)
 
-    stream.on("data", (data) => {
-      console.log(data)
+  try {
+    const item = await client.send(command)
+
+    await new Promise(() => {
+      const body = item.Body
+
+      if (body instanceof Readable) {
+        body
+          .pipe(csv())
+          .on("data", async (data: any) => {
+            const params = {
+              MessageBody: JSON.stringify(data),
+              QueueUrl: "https://sqs.us-east-1.amazonaws.com/745945733339/catalogItemsQueue",
+            }
+            console.log(`Record: ${JSON.stringify(data)}`)
+            await sqs.sendMessage(params).promise()
+          })
+          .on("end", async () => {
+            console.log("CSV file is parsed.")
+
+            try {
+              await client.send(
+                new CopyObjectCommand({
+                  Bucket: BUCKET,
+                  CopySource: BUCKET + "/" + KEY,
+                  Key: KEY.replace("uploaded", "parsed"),
+                })
+              )
+
+              console.log(`CopyObjectCommand.`)
+
+              await client.send(
+                new DeleteObjectCommand({
+                  Bucket: BUCKET,
+                  Key: KEY,
+                })
+              )
+
+              console.log(`DeleteObjectCommand.`)
+            } catch (error) {
+              console.log(error)
+            }
+          })
+          .on("error", (error: any) => console.log(`Error: ${error}`))
+      } else {
+        console.log("File error.")
+      }
     })
 
-    stream.on("error", (err) => {
-      console.error("Error reading the S3 object through stream: ", err)
-    })
+    return createResponse(200, JSON.stringify("Successfully parsed.", null, 2))
+  } catch (error: any) {
+    console.log(error)
+
+    return createResponse(500, error.message || JSON.stringify("Server error.", null, 2))
   }
 }
