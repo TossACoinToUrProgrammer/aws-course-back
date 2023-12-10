@@ -1,31 +1,40 @@
 import { APIGatewayProxyHandler } from "aws-lambda"
-import { S3Client } from "@aws-sdk/client-s3"
-import { createPresignedPost } from "@aws-sdk/s3-presigned-post"
+import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import createResponse from "./utils/createResponse"
 
 const s3 = new S3Client({ region: "us-east-1" })
 const bucketName = process.env.BUCKET
 
-export const main: APIGatewayProxyHandler = async function (event, context) {
+export const main: APIGatewayProxyHandler = async function (event: any, context) {
+  const pathProducts = event.queryStringParameters.name;
+  console.log(`Input file: ${pathProducts}.`);
+
+  if (!pathProducts.endsWith('.csv')) {
+    console.log(`Error with .csv extension for "${pathProducts}" file.`)
+    return createResponse(400, JSON.stringify(`The file format is invalid.`, null, 2));
+  }
+  const KEY = `uploaded/${pathProducts}`;
+
+  const params = {
+    Bucket: bucketName,
+    Key: KEY,
+    ContentType: 'text/csv',
+  };
+
+  const command = new PutObjectCommand(params);
+
   try {
-    if (!event.queryStringParameters) {
-      return createResponse(400, "no queryString provided")
-    }
-    const { name } = event.queryStringParameters
+    await s3.send(command)
 
-    // Generate a pre-signed URL for uploading an object
-    const presignedPost = await createPresignedPost(s3, {
-      Bucket: bucketName!,
-      Key: `uploaded/${name}`,
-      Fields: {
-        "Content-Type": "text/csv", // Adjust the content type based on your file type
-      },
-      Expires: 60, // URL expires in 60 seconds
-    })
+    const url = await getSignedUrl(s3, command);
 
-    return createResponse(200, { uploadUrl: presignedPost.url, fields: presignedPost.fields })
+    console.log('Successfully uploaded to: ' + bucketName + '/' + KEY)
+
+    return createResponse(200, url);
   } catch (error: any) {
-    const body = error.stack || JSON.stringify(error, null, 2)
-    return createResponse(500, body)
+    console.error(error);
+
+    return createResponse(500, error.message || JSON.stringify('RS School Server error.', null, 2));
   }
 }
