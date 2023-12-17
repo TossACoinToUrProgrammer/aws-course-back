@@ -34,10 +34,10 @@ export class ImportServiceStack extends cdk.Stack {
     importFileParser.addToRolePolicy(
       new iam.PolicyStatement({
         effect: iam.Effect.ALLOW,
-        actions: ['sqs:SendMessage'],
-        resources: ["arn:aws:sqs:us-east-1:745945733339:catalogItemsQueue"], // Make sure to provide correct ARN for your SQS queue
-      }),
-    );
+        actions: ["sqs:SendMessage"],
+        resources: ["arn:aws:sqs:us-east-1:745945733339:catalogItemsQueue"],
+      })
+    )
 
     const existingBucket = s3.Bucket.fromBucketName(this, "UploadedBucket", bucketName)
     existingBucket.grantReadWrite(importProductsFile)
@@ -53,6 +53,15 @@ export class ImportServiceStack extends cdk.Stack {
       },
     })
 
+    api.addGatewayResponse("GatewayResponse4XX", {
+      type: cdk.aws_apigateway.ResponseType.DEFAULT_4XX,
+      responseHeaders: {
+        "Access-Control-Allow-Origin": "'*'",
+        "Access-Control-Allow-Headers": "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'",
+        "Access-Control-Allow-Methods": "'OPTIONS,GET,PUT'",
+      },
+    })
+
     const lambdaIntegration = new apigateway.LambdaIntegration(importProductsFile, {
       requestParameters: {
         "integration.request.querystring.name": "method.request.querystring.name",
@@ -61,10 +70,47 @@ export class ImportServiceStack extends cdk.Stack {
 
     // Create an API Gateway resource and method
     const resource = api.root.addResource("import")
+
+    const basicAuthorizer = lambda.Function.fromFunctionArn(
+      this,
+      "BasicAuthorizerFunction",
+      "arn:aws:lambda:us-east-1:745945733339:function:AuthorizationServiceStack-BasicAuthorizer2B49C1FC-kDTD7WaUcn3O"
+    )
+
+    // Create IAM role for API Gateway
+    const apiGWRole = new iam.Role(this, "apigwLambdaRole", {
+      assumedBy: new iam.ServicePrincipal("apigateway.amazonaws.com"),
+      description: "Role for API Gateway to call Lambda function",
+    })
+
+    // Create a policy to allow API Gateway to invoke the Lambda function
+    const callLambdaPolicy = new iam.PolicyStatement({
+      resources: [basicAuthorizer.functionArn],
+      actions: ["lambda:InvokeFunction"],
+    })
+
+    apiGWRole.addToPolicy(callLambdaPolicy)
+
+    const authorizer = new apigateway.TokenAuthorizer(this, "Authorizer", {
+      handler: basicAuthorizer,
+      assumeRole: apiGWRole,
+    })
+
     resource.addMethod("GET", lambdaIntegration, {
+      methodResponses: [
+        {
+          statusCode: "200",
+          responseParameters: {
+            "method.response.header.Content-Type": true,
+            "method.response.header.Access-Control-Allow-Origin": true,
+          },
+        },
+      ],
       requestParameters: {
         "method.request.querystring.name": true,
       },
+      authorizer,
+      authorizationType: apigateway.AuthorizationType.CUSTOM,
     })
 
     existingBucket.addEventNotification(s3.EventType.OBJECT_CREATED, new s3n.LambdaDestination(importFileParser))
