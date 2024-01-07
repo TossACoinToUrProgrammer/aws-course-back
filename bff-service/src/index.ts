@@ -7,11 +7,13 @@ import { getPathname } from "./utils/getPathname"
 const port = process.env.PORT || 4000
 
 const cartUrl = process.env.CART_API
+const productsUrl = process.env.PRODUCTS_API
+const importUrl = process.env.IMPORT_API
 
 const urls = {
   cart: cartUrl,
-  import: "https://n5bz2zlq3b.execute-api.us-east-1.amazonaws.com/prod", //?name=testFile1.csv
-  products: "https://xtvcbfsgk5.execute-api.us-east-1.amazonaws.com/prod",
+  import: productsUrl, //?name=testFile1.csv
+  products: importUrl,
 }
 
 const server = http.createServer()
