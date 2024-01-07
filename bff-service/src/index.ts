@@ -34,15 +34,16 @@ server.on("request", async (req: http.IncomingMessage, res: http.ServerResponse)
       method: req.method,
       url: `${recipentURL}${req.url}`,
       ...(body && { data: body }),
+      ...(req.headers.authorization && { headers: { Authorization: req.headers.authorization } }),
     }
 
     try {
       const response = await axios(axiosConfig)
       res.writeHead(response.status, { "Content-Type": "application/json" })
-      if (pathname === "products") {
-        return res.end(JSON.stringify(response.data))
-      } else {
+      if (response.data.data) {
         return res.end(JSON.stringify(response.data.data))
+      } else {
+        return res.end(JSON.stringify(response.data))
       }
     } catch (error: any) {
       console.log("error", error)
