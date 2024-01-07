@@ -1,5 +1,3 @@
-import * as url from "url"
-
 export const getPathname = (inputUrl?: string) => {
-  return url.parse(inputUrl!, true).pathname?.slice(1) || ""
+  return inputUrl?.split("/")[1].split("?")[0] || ""
 }

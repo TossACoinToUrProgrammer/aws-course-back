@@ -12,8 +12,8 @@ const importUrl = process.env.IMPORT_API
 
 const urls = {
   cart: cartUrl,
-  import: productsUrl, //?name=testFile1.csv
-  products: importUrl,
+  import: importUrl, //?name=testFile1.csv
+  products: productsUrl,
 }
 
 const server = http.createServer()
